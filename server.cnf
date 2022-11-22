@@ -1,0 +1,23 @@
+[ req ]
+default_bits       = 4096
+distinguished_name = req_distinguished_name
+x509_extensions    = v3_req
+prompt = no
+
+[ req_distinguished_name ]
+C         = SI
+ST = Ljubljana
+L  = Ljubljana
+O  = WeRock
+OU = WeRock
+CN = we-rock-server
+emailAddress = info@we-rock.com
+
+[v3_req]
+basicConstraints       = CA:true
+subjectKeyIdentifier   = hash
+authorityKeyIdentifier = keyid,issuer
+subjectAltName = @alt_names
+
+[alt_names]
+IP.1 = 172.105.251.232
