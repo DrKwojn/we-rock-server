@@ -85,6 +85,7 @@ app.post('/register', async (req, res) => {
             VALUES (DEFAULT, ${req.body.username}, ${req.body.email}, ${password})
         `;
 
+    console.log('Registered ' + req.body.username);
     res.sendStatus(300);
 });
 
@@ -122,8 +123,9 @@ app.post('/login', async (req, res) => {
         return;
     }
 
-    const acessToken = jwt.sign(user.username, process.env.ACCESS_TOKEN_SECRET);
-    res.json({acessToken: acessToken});
+    const accessToken = jwt.sign(user.username, process.env.ACCESS_TOKEN_SECRET);
+    console.log('Logged in ' + user.username);
+    res.json({accessToken: accessToken});
 });
 
 const server = https.createServer(credentials, app);
