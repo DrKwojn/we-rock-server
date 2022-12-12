@@ -8,7 +8,9 @@ import express from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 
-import postgres from 'postgres';
+import Database from './database.js'
+
+import Errors from './errors.js'
 
 dotenv.config();
 
@@ -17,7 +19,7 @@ const credentials = {
     cert: fs.readFileSync('./cert/server.crt', 'utf-8')
 }
 
-const sql = postgres(process.env.POSTGRES);
+const database = new Database(process.env.POSTGRES);
 
 const app = express();
 app.use(express.json());
@@ -26,19 +28,19 @@ const authenticate = (req, res, next) => {
     const header = req.headers['authorization'];
     if(!header) {
         console.log('Missing auth header');
-        return res.sendStatus(401);
+        return res.status(Errors.AUTH_MISSING_HEADER.code).json(Errors.AUTH_MISSING_HEADER);
     }
 
     const token = header.split(' ')[1];
     if(!token) {
         console.log('Missing auth token');
-        return res.sendStatus(401);
+        return res.status(Errors.AUTH_MISSING_TOKEN.code).json(Errors.AUTH_MISSING_TOKEN);
     }
 
     jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (error, user) => {
         if(error){
             console.log('Token not verified');
-            return res.sendStatus(403);
+            return res.status(Errors.AUTH_UNVERIFIED_TOKEN.code).json(Errors.AUTH_UNVERIFIED_TOKEN);
         }
 
         req.user = user;
@@ -51,7 +53,7 @@ app.get('/', (req, res) => {
 });
 
 app.get('/user/list', authenticate, async (req, res) => {
-    const users = await sql`SELECT username FROM appuser`;
+    const users = await database.getUsers();
     console.log(users);
     res.json(users);
 });
@@ -59,15 +61,14 @@ app.get('/user/list', authenticate, async (req, res) => {
 app.post('/register', async (req, res) => {
     if(!req.body || !req.body.username || !req.body.password || !req.body.email){
         console.log('Missing username, password and/or email');
-        res.sendStatus(400);
+        res.status(Errors.REG_MISSING.code).json(Errors.REG_MISSING);
         return;
     }
 
-    const users = await sql`SELECT username, email, password FROM appuser WHERE username = ${req.body.username} OR email = ${req.body.email}`;
-    console.log(users.count);
-    if(users.count > 0){
+    const exists = await database.userExists(req.body.username, req.body.email);
+    if(exists) {
         console.log('User with username and/or email already exists');
-        res.sendStatus(400);
+        res.status(Errors.REG_USER_EXISTS.code).json(Errors.REG_USER_EXISTS);
         return;
     }
 
@@ -76,14 +77,11 @@ app.post('/register', async (req, res) => {
         password = await bcrypt.hash(req.body.password, 10);
     } catch {
         console.log('Failed to hash password');
-        res.sendStatus(400);
+        res.status(Errors.REG_HASH_FAILED.code).json(Errors.REG_HASH_FAILED);
         return;
     }
 
-    const result = await sql`
-        INSERT INTO appuser (user_id, username, email, password) 
-            VALUES (DEFAULT, ${req.body.username}, ${req.body.email}, ${password})
-        `;
+    await database.addUser(req.body.username, req.body.email, password);
 
     console.log('Registered ' + req.body.username);
     res.sendStatus(300);
@@ -92,34 +90,32 @@ app.post('/register', async (req, res) => {
 app.post('/login', async (req, res) => {
     if(!req.body || !req.body.username || !req.body.password){
         console.log('Missing username and/or password');
-        res.sendStatus(400);
+        res.status(Errors.LOGIN_MISSING.code).json(Errors.LOGIN_MISSING);
         return;
     }
 
     const username = req.body.username;
     const password = req.body.password;
 
-    const users = await sql`SELECT username, password FROM appuser WHERE username = ${username}`;
-    if(users.count != 1){
+    const user = await database.getUser(username);
+    if(!user){
         console.log('Wrong username');
-        res.sendStatus(400);
+        res.status(Errors.LOGIN_WRONG.code).json(Errors.LOGIN_WRONG);
         return;
     }
-
-    const user = users[0];
 
     let result;
     try {
         result = await bcrypt.compare(password, user.password);
     } catch {
         console.log('Failed to compare passwords');
-        res.sendStatus(400);
+        res.status(Errors.LOGIN_WRONG.code).json(Errors.LOGIN_WRONG);
         return;
     }
 
     if(!result){
         console.log('Wrong password');
-        res.sendStatus(400);
+        res.status(Errors.LOGIN_WRONG.code).json(Errors.LOGIN_WRONG);
         return;
     }
 
