@@ -21,7 +21,7 @@ export default class Database {
 
     async addUser(username, email, password) {
         await this.sql`
-            INSERT INTO appuser (user_id as id, username, email, password) 
+            INSERT INTO appuser (user_id, username, email, password) 
             VALUES (DEFAULT, ${username}, ${email}, ${password})
         `;
     }

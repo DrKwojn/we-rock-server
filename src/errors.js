@@ -1,6 +1,8 @@
 
 export default class Errors {
     static UNKNOWN               = { id:  0, code: 500, message: 'Unknown server error'                           };
+    //Internal
+    static DATABASE_FAILURE      = { id:  1, code: 500, message: 'Failed to connect to the database'              };
     //Authenticate
     static AUTH_MISSING_HEADER   = { id: 10, code: 401, message: 'Missing authentication header'                  };
     static AUTH_MISSING_TOKEN    = { id: 11, code: 401, message: 'Missing authentication token'                   };

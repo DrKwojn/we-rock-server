@@ -64,8 +64,17 @@ app.post('/register', async (req, res) => {
         res.status(Errors.REG_MISSING.code).json(Errors.REG_MISSING);
         return;
     }
+    
+    let exists;
+    try {
+        exists = await database.userExists(req.body.username, req.body.email);
+    } catch (error) {
+        console.log('Database failure');
+        console.log(error);
+        res.status(Errors.DATABASE_FAILURE.code).json(Errors.DATABASE_FAILURE);
+        return;
+    }
 
-    const exists = await database.userExists(req.body.username, req.body.email);
     if(exists) {
         console.log('User with username and/or email already exists');
         res.status(Errors.REG_USER_EXISTS.code).json(Errors.REG_USER_EXISTS);
@@ -81,10 +90,17 @@ app.post('/register', async (req, res) => {
         return;
     }
 
-    await database.addUser(req.body.username, req.body.email, password);
+    try {
+        await database.addUser(req.body.username, req.body.email, password);
+    } catch (error) {
+        console.log('Database failure');
+        console.log(error);
+        res.status(Errors.DATABASE_FAILURE.code).json(Errors.DATABASE_FAILURE);
+        return;
+    }
 
     console.log('Registered ' + req.body.username);
-    res.sendStatus(300);
+    res.sendStatus(200);
 });
 
 app.post('/login', async (req, res) => {
@@ -97,7 +113,16 @@ app.post('/login', async (req, res) => {
     const username = req.body.username;
     const password = req.body.password;
 
-    const user = await database.getUser(username);
+    let user;
+    try {
+        user = await database.getUser(username);
+    } catch (error) {
+        console.log('Database failure');
+        console.log(error);
+        res.status(Errors.DATABASE_FAILURE.code).json(Errors.DATABASE_FAILURE);
+        return;
+    }
+
     if(!user){
         console.log('Wrong username');
         res.status(Errors.LOGIN_WRONG.code).json(Errors.LOGIN_WRONG);
