@@ -54,8 +54,17 @@ app.get('/', (req, res) => {
 
 app.get('/user/list', authenticate, async (req, res) => {
     const users = await database.getUsers();
-    console.log(users);
     res.json(users);
+});
+
+app.get('/user/:id', authenticate, async (req, res) => {
+    const user = await database.getUser(req.params.id);
+    res.json(user);
+});
+
+app.put('/user/:id', authenticate, async (req, res) => {
+    console.log(req.body);
+    res.status(400);
 });
 
 app.post('/register', async (req, res) => {
@@ -115,7 +124,7 @@ app.post('/login', async (req, res) => {
 
     let user;
     try {
-        user = await database.getUser(username);
+        user = await database.getUserAccount(username);
     } catch (error) {
         console.log('Database failure');
         console.log(error);

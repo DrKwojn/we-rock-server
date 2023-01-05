@@ -7,10 +7,23 @@ export default class Database {
     }
 
     async getUsers() {
-        return await this.sql`SELECT username FROM appuser`;
+        return await this.sql`SELECT user_id as id, username, description FROM appuser`;
     }
 
-    async getUser(username) {
+    async getUser(id) {
+        const users = await this.sql`SELECT user_id as id, username, password, description FROM appuser WHERE user_id = ${id}`;
+        if(users.count == 1) {
+            return users[0];
+        } else {
+            return null;
+        }
+    }
+
+    async updateUser(user) {
+        await this.sql`UPDATE appuser SET description = ${user.description} WHERE user_id = ${user.id} AND username = ${user.username}`;
+    }
+
+    async getUserAccount(username) {
         const users = await this.sql`SELECT user_id as id, username, password FROM appuser WHERE username = ${username}`;
         if(users.count == 1) {
             return users[0];
