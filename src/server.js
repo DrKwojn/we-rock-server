@@ -1,18 +1,23 @@
 
 import dotenv from 'dotenv';
 import fs from 'fs';
+import path from 'path';
 
 import https from 'https';
 import express from 'express';
+import fileUpload from 'express-fileupload';
 
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 
 import Database from './database.js'
-
 import Errors from './errors.js'
+import util from './util.js'
 
 dotenv.config();
+
+const image_path = path.resolve(process.env.FILE_IMAGES_PATH) + '/';
+const sound_path = path.resolve(process.env.FILE_SOUNDS_PATH) + '/';
 
 const credentials = {
     key:  fs.readFileSync('./cert/server.key', 'utf-8'),
@@ -23,6 +28,7 @@ const database = new Database(process.env.POSTGRES);
 
 const app = express();
 app.use(express.json());
+app.use(fileUpload());
 
 const authenticate = (req, res, next) => {
     const header = req.headers['authorization'];
@@ -57,14 +63,138 @@ app.get('/user/list', authenticate, async (req, res) => {
     res.json(users);
 });
 
+app.get('/user/current', authenticate, async (req, res) => {
+    const user = await database.getUserByUsername(req.user);
+    console.log(user);
+    res.json(user);
+});
+
 app.get('/user/:id', authenticate, async (req, res) => {
     const user = await database.getUser(req.params.id);
+    console.log(user);
     res.json(user);
 });
 
 app.put('/user/:id', authenticate, async (req, res) => {
-    console.log(req.body);
-    res.status(400);
+    await database.updateUserInfo(req.body);
+    res.sendStatus(200);
+});
+
+app.get('/image/download/:id', authenticate, async (req, res) => {
+    const image_uuid = await database.getUserProfileImageById(req.params.id);
+    console.log(image_uuid);
+
+    if(!image_uuid) {
+        console.log('User has no image set');
+        return res.status(Errors.FILE_NO_PROFILE_IMAGE.code).json(Errors.FILE_NO_PROFILE_IMAGE);
+    }
+
+    const filepath = util.findFileInDir(image_path, image_uuid);
+    if(!filepath) {
+        console.log('Profile image missing');
+        return res.status(Errors.FILE_NO_PROFILE_IMAGE.code).json(Errors.FILE_NO_PROFILE_IMAGE);
+    }
+ 
+    console.log('Downloading image file ' + filepath);
+    res.download(filepath);
+});
+
+app.post('/image/upload', authenticate, async (req, res) => {
+    if(!req.files || Object.keys(req.files).length === 0) {
+        return res.status(Errors.FILE_UPLOAD_MISSING.code).send(Errors.FILE_UPLOAD_MISSING);
+    }
+
+    const old_image_uuid = await database.getUserProfileImage(req.user);
+    if(old_image_uuid) {
+        util.findAndDeleteFileInDir(image_path, old_image_uuid);
+    }
+
+    await database.setUserProfileImage(req.user);
+    const image_uuid = await database.getUserProfileImage(req.user);
+
+    const file = req.files.file;
+    const extension = file.name.split('.').pop();
+    const path = image_path + image_uuid + '.' + extension;
+
+    try {
+        await file.mv(path);
+    } catch(error) {
+        console.log('Failed to store file')
+        console.log(error);
+        return res.status(Errors.FILE_STORING_FAILED.code).json(Errors.FILE_STORING_FAILED);
+    }
+
+    console.log("Uploaded image");
+    res.sendStatus(200);
+});
+
+app.get('/sound/download/:id', authenticate, async (req, res) => {
+    const sound_uuid = await database.getUserSoundClip(req.user, req.params.id);
+    console.log(sound_uuid);
+
+    if(!sound_uuid) {
+        console.log('User has no sound clip set');
+        return res.status(Errors.FILE_NO_SOUND_CLIP.code).json(Errors.FILE_NO_SOUND_CLIP);
+    }
+
+    const filepath = util.findFileInDir(sound_path, sound_uuid);
+    if(!filepath) {
+        console.log('Sound clip missing');
+        return res.status(Errors.FILE_NO_SOUND_CLIP.code).json(Errors.FILE_NO_SOUND_CLIP);
+    }
+ 
+    console.log('Downloading sound file ' + filepath);
+    res.download(filepath);
+});
+
+app.post('/sound/upload/:id', authenticate, async (req, res) => {
+    if(!req.files || Object.keys(req.files).length === 0) {
+        return res.status(Errors.FILE_UPLOAD_MISSING.code).send(Errors.FILE_UPLOAD_MISSING);
+    }
+
+    const old_sound_uuid = await database.getUserSoundClip(req.user, req.params.id);
+    console.log('Old file');
+    console.log(old_sound_uuid);
+    if(old_sound_uuid) {
+        util.findAndDeleteFileInDir(sound_path, old_sound_uuid);
+    }
+
+    await database.setUserSoundClip(req.user, req.params.id);
+    const sound_uuid = await database.getUserSoundClip(req.user, req.params.id);
+    console.log('New file');
+    console.log(sound_uuid);
+
+    const file = req.files.file;
+    const extension = file.name.split('.').pop();
+    const path = sound_path + sound_uuid + '.' + extension;
+
+    try {
+        await file.mv(path);
+    } catch(error) {
+        console.log('Failed to store file')
+        console.log(error);
+        return res.status(Errors.FILE_STORING_FAILED.code).json(Errors.FILE_STORING_FAILED);
+    }
+
+    console.log("Uploaded sound clip");
+    res.sendStatus(200);
+});
+
+app.get('/chat/list', authenticate, async (req, res) => {
+    const chatList = await database.getUserConversationList(req.user);
+    res.json(chatList);
+});
+
+app.get('/chat/:id', authenticate, async (req, res) => {
+    const chat = await database.getUserConversation(req.user, req.params.id);
+    res.json(chat);
+});
+
+app.post('/chat/:id', authenticate, async (req, res) => {
+    console.log(req.params);
+    console.log(req.body.text);
+    await database.addMessage(req.user, req.params.id, req.body.text);
+    res.sendStatus(200);
 });
 
 app.post('/register', async (req, res) => {
@@ -77,7 +207,7 @@ app.post('/register', async (req, res) => {
     let exists;
     try {
         exists = await database.userExists(req.body.username, req.body.email);
-    } catch (error) {
+    } catch(error) {
         console.log('Database failure');
         console.log(error);
         res.status(Errors.DATABASE_FAILURE.code).json(Errors.DATABASE_FAILURE);

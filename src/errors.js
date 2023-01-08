@@ -14,4 +14,9 @@ export default class Errors {
     //Login
     static LOGIN_MISSING         = { id: 30, code: 400, message: 'Missing username and/or password'               };
     static LOGIN_WRONG           = { id: 31, code: 400, message: 'Wrong username and/or password'                 };
+    //File upload
+    static FILE_UPLOAD_MISSING   = { id: 41, code: 404, message: 'No file was uploaded'                           };
+    static FILE_STORING_FAILED   = { id: 42, code: 500, message: 'Failed to store file'                           };
+    static FILE_NO_PROFILE_IMAGE = { id: 43, code: 404, message: 'User has no profile image'                      };
+    static FILE_NO_SOUND_CLIP    = { id: 44, code: 404, message: 'User has no sound clip'                         };
 }
