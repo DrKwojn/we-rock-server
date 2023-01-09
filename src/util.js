@@ -17,7 +17,6 @@ const findFileInDir = (dir, filename) => {
 const findAndDeleteFileInDir = (dir, filename) => {
     const filepath = findFileInDir(dir, filename);
     if(filepath) {
-        filepath = path.join(image_path, files[index]);
         try {
             fs.unlinkSync(filepath);
         } catch (err) {

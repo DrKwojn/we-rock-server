@@ -97,7 +97,7 @@ export default class Database {
 
     async getUserAccount(username) {
         const users = await this.sql`SELECT user_id as id, username, password FROM appuser WHERE username = ${username}`;
-        if(users.count == 1) {
+        if(users && users.count == 1) {
             return users[0];
         } else {
             return null;
@@ -126,7 +126,7 @@ export default class Database {
         console.log(user);
 
         const conversations = await this.sql`
-            SELECT u.user_id as id, u.full_name as full_name
+            SELECT u.user_id as id, u.username, username, u.full_name as fullname
             FROM appuser u 
             INNER JOIN message m ON u.user_id = m.from_id OR u.user_id = m.to_id
             WHERE (m.to_id = ${user.id} OR m.from_id = ${user.id}) AND u.user_id != ${user.id}

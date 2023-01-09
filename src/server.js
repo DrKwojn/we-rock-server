@@ -288,6 +288,22 @@ app.post('/login', async (req, res) => {
     res.json({accessToken: accessToken});
 });
 
+app.post('/validate', authenticate, async (req, res) => {
+    if(!req.user) {
+        res.status(Errors.AUTH_UNVERIFIED_TOKEN.code).json(Errors.AUTH_UNVERIFIED_TOKEN);
+    }
+
+    const user = await database.getUserAccount(req.user);
+
+    if(!user){
+        console.log('Not a valid user');
+        res.status(Errors.AUTH_UNVERIFIED_TOKEN.code).json(Errors.AUTH_UNVERIFIED_TOKEN);
+        return;
+    }
+
+    res.sendStatus(200);
+});
+
 const server = https.createServer(credentials, app);
 
 server.listen(process.env.EXPRESS_PORT);
